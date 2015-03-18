@@ -43,7 +43,7 @@ class platina_conveadtracker extends CModule {
         RegisterModule($this->MODULE_ID);
         RegisterModuleDependences("sale", "OnBasketAdd", $this->MODULE_ID, "cConveadTracker", "updateCart", "100");
         RegisterModuleDependences("sale", "OnBeforeBasketDelete", $this->MODULE_ID, "cConveadTracker", "updateCart", "100");
-        RegisterModuleDependences("sale", "OnBeforeOrderAdd", $this->MODULE_ID, "cConveadTracker", "order", "100");
+        RegisterModuleDependences("sale", "OnBasketOrder", $this->MODULE_ID, "cConveadTracker", "order", "100");
         RegisterModuleDependences("main", "OnAfterEpilog", $this->MODULE_ID, "cConveadTracker", "view", "100");
         RegisterModuleDependences("main", "OnEpilog", $this->MODULE_ID, "cConveadTracker", "head", "100");
         RegisterModuleDependences("sale", "OnBasketUpdate", $this->MODULE_ID, "cConveadTracker", "updateCart", "100");
@@ -61,7 +61,7 @@ class platina_conveadtracker extends CModule {
         global $APPLICATION;
         UnRegisterModuleDependences("sale", "OnBasketAdd", $this->MODULE_ID, "cConveadTracker", "updateCart");
         UnRegisterModuleDependences("sale", "OnBeforeBasketDelete", $this->MODULE_ID, "cConveadTracker", "updateCart");
-        UnRegisterModuleDependences("sale", "OnBeforeOrderAdd", $this->MODULE_ID, "cConveadTracker", "order");
+        UnRegisterModuleDependences("sale", "OnBasketOrder", $this->MODULE_ID, "cConveadTracker", "order");
         UnRegisterModuleDependences("main", "OnAfterEpilog", $this->MODULE_ID, "cConveadTracker", "view");
         UnRegisterModuleDependences("main", "OnEpilog", $this->MODULE_ID, "cConveadTracker", "head");
         UnRegisterModuleDependences("sale", "OnBasketUpdate", $this->MODULE_ID, "cConveadTracker", "updateCart");

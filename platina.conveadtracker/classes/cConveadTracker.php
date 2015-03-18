@@ -317,53 +317,54 @@ class cConveadTracker {
         return true;
     }
 
-    static function order($arFields) {
-        
+    static function order($ID, $fuserID, $strLang, $arDiscounts)
+      {
         $api_key = COption::GetOptionString(self::$MODULE_ID, "tracker_code", '');
         if (!$api_key)
-            return;
+          return;
+        $arOrder = CSaleOrder::GetByID(intval($ID));
+        if ($arOrder["ID"] > 0)
+          {
 
-        $visitor_uid = false;
-        $visitor_info = false;
-        if ($arFields["USER_ID"] && $arFields["USER_ID"] && $visitor_info = self::getVisitorInfo($arFields["USER_ID"])) {
-            $visitor_uid = $arFields["USER_ID"];
-        }
-        $guest_uid = self::getUid($visitor_uid);
+            $TimeUpdate = strtotime($arOrder["DATE_UPDATE"]);
+            $TimeAdd = strtotime($arOrder["DATE_INSERT"]);
+            if ($TimeUpdate - $TimeAdd <= 60)
+              {
+                $visitor_uid = false;
+                $visitor_info = false;
+                if ($arOrder["USER_ID"] && $arOrder["USER_ID"] &&
+                   $visitor_info = self::getVisitorInfo($arOrder["USER_ID"])
+                )
+                  {
+                    $visitor_uid = $arOrder["USER_ID"];
+                  }
+                $guest_uid = self::getUid($visitor_uid);
+                $tracker =
+                   new ConveadTracker($api_key, $guest_uid, $visitor_uid, $visitor_info, false, SITE_SERVER_NAME);
 
-        $phone_name = COption::GetOptionString(self::$MODULE_ID, "phone_code", '');
-        if($phone_name && isset($_POST[$phone_name])){
-            $visitor_info["phone"] = $_POST[$phone_name];
-        }
-
-       
-        $tracker = new ConveadTracker($api_key, $guest_uid, $visitor_uid, $visitor_info, false, SITE_SERVER_NAME);
-
-        $items = array();
-        $orders = CSaleBasket::GetList(
-                        array(), array(
-                    "USER_ID" => $arFields["USER_ID"],
-                    "LID" => SITE_ID,
-                    "ORDER_ID" => "NULL"
-                        ), false, false, array()
-        );
-        $i = 0;
-        while ($order = $orders->Fetch()) {
-
-            $item["product_id"] = $order["PRODUCT_ID"];
-            $item["qnt"] = $order["QUANTITY"];
-            $item["price"] = $order["PRICE"];
-            $items[$i . ""] = $item;
-            $i++;
-        }
-
-        $price = $arFields["PRICE"] - (isset($arFields["PRICE_DELIVERY"]) ? $arFields["PRICE_DELIVERY"] : 0 );
-
-        $max_order = CSaleOrder::GetList(array("ID" => "DESC"), array(), false, false, array())->Fetch();
-        $order_id = (isset($max_order["ID"]) ? $max_order["ID"] : 0) + 1;
-        $result = $tracker->eventOrder($order_id, $price, $items);
-
+                $items = array();
+                $orders = CSaleBasket::GetList(array(), array(
+                   "ORDER_ID" => $arOrder["ID"]
+                ), false, false, array());
+                $i = 0;
+                while ($order = $orders->Fetch())
+                  {
+                    $arProd = CCatalogSku::GetProductInfo($order["PRODUCT_ID"]);
+                    $item["product_id"] = isset($arProd["ID"]) ? $arProd["ID"] : $order["PRODUCT_ID"];
+                    $item["qnt"] = $order["QUANTITY"];
+                    $item["price"] = $order["PRICE"];
+                    $items[$i . ""] = $item;
+                    $i++;
+                  }
+                if (!empty($items))
+                  {
+                    $price = $arOrder["PRICE"] - (isset($arOrder["PRICE_DELIVERY"]) ? $arOrder["PRICE_DELIVERY"] : 0);
+                    $result = $tracker->eventOrder($ID, $price, $items);
+                  }
+              }
+          }
         return true;
-    }
+      }
 
     static function view() {
         return true;
@@ -406,7 +407,8 @@ class cConveadTracker {
         return true;
     }
 
-    static function head() {
+    static function HeadScript($api_key)
+      {
         $api_key = COption::GetOptionString(self::$MODULE_ID, "tracker_code", '');
         if (!$api_key)
             return;
@@ -453,8 +455,6 @@ class cConveadTracker {
                     (function(w,d,c){w[c]=w[c]||function(){(w[c].q=w[c].q||[]).push(arguments)};var ts = (+new Date()/86400000|0)*86400;var s = d.createElement('script');s.type = 'text/javascript';s.async = true;s.src = 'http://tracker.convead.io/widgets/'+ts+'/widget-$api_key.js';var x = d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s, x);})(window,document,'convead');
                     </script>
                     <!-- /Convead Widget -->";
-        $APPLICATION->AddHeadString($head, true);
-
         if(isset($_SESSION["CONVEAD_PRODUCT_ID"])){
             
             $head1 = "<!-- Convead view product -->
@@ -474,7 +474,6 @@ class cConveadTracker {
                     </script>
                     <!-- /Convead view product -->";
             //echo $head1;
-            $APPLICATION->AddHeadString($head1, false, true);
 
             $_SESSION["CONVEAD_PRODUCT_ID"] = null;
             $_SESSION["CONVEAD_PRODUCT_NAME"] = null;
@@ -483,10 +482,34 @@ class cConveadTracker {
             unset($_SESSION["CONVEAD_PRODUCT_NAME"]);
             unset($_SESSION["CONVEAD_PRODUCT_URL"]);
         }
+        return $head.$head1;
+      }
 
-
+    static function head()
+      {
+        $api_key = COption::GetOptionString(self::$MODULE_ID, "tracker_code", '');
+        if (!$api_key)
+          return;
+        if (CHTMLPagesCache::IsOn())
+          {
+            $frame = new \Bitrix\Main\Page\FrameHelper("platina_conveadtracker");
+            $frame->begin();
+            $actionType = \Bitrix\Main\Context::getCurrent()->getServer()->get("HTTP_BX_ACTION_TYPE");
+            if (true/*$actionType == "get_dynamic"*/)
+              {
+                echo self::HeadScript($api_key);
+              }
+            $frame->beginStub();
+            $frame->end();
+          }
+        else
+          {
+            global $APPLICATION;
+            $APPLICATION->AddHeadString(self::HeadScript($api_key), false, true);
+          }
         return true;
-    }
+      }
+
 
     static function productViewCustom($id, $arFields) {
         if($arFields["PRODUCT_ID"])
